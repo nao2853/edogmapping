@@ -64,8 +64,8 @@ class DiffElevationMappingNode
 DiffElevationMappingNode::DiffElevationMappingNode()
 {
   ros::NodeHandle private_nh;
-  // private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/hokuyo3d/hokuyo_cloud2"));
-  private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/disting_cloud2"));
+  private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/hokuyo3d/hokuyo_cloud2"));
+  // private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/disting_cloud2"));
   private_nh.param("global_frame_id", global_frame_id_, std::string("map"));
   private_nh.param("pcd_file", pcd_file_, std::string("elevation_difference_grid_map.pcd"));
 
@@ -87,20 +87,20 @@ void DiffElevationMappingNode::processMapping(const sensor_msgs::PointCloud2Cons
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(transformed_point_cloud, *pcl_point_cloud);
 
-  map_t *obs_map = map_alloc();
-  obs_map->size_x = map_->size_x;
-  obs_map->size_y = map_->size_y;
-  obs_map->scale = map_->scale;
-  obs_map->origin_x = map_->origin_x;
-  obs_map->origin_y = map_->origin_y;
-  obs_map->cells = (map_cell_t*)malloc(sizeof(map_cell_t)*obs_map->size_x*obs_map->size_y);
+  // map_t *obs_map = map_alloc();
+  // obs_map->size_x = map_->size_x;
+  // obs_map->size_y = map_->size_y;
+  // obs_map->scale = map_->scale;
+  // obs_map->origin_x = map_->origin_x;
+  // obs_map->origin_y = map_->origin_y;
+  // obs_map->cells = (map_cell_t*)malloc(sizeof(map_cell_t)*obs_map->size_x*obs_map->size_y);
 
-  for(int i=0; i<obs_map->size_x*obs_map->size_y; i++){
-    obs_map->cells[i].flag = false;
-    obs_map->cells[i].min = 0.0;
-    obs_map->cells[i].max = 0.0;
-    obs_map->cells[i].diff = 0.0;
-  }
+  // for(int i=0; i<obs_map->size_x*obs_map->size_y; i++){
+  //   obs_map->cells[i].flag = false;
+  //   obs_map->cells[i].min = 0.0;
+  //   obs_map->cells[i].max = 0.0;
+  //   obs_map->cells[i].diff = 0.0;
+  // }
 
   // ver tera start
   // tf::Stamped<tf::Pose> pose;
@@ -123,11 +123,11 @@ void DiffElevationMappingNode::processMapping(const sensor_msgs::PointCloud2Cons
       // if (pcl_point_cloud->points.at(i).z >1.5) pcl_point_cloud->points.at(i).z = 1.5;
       // if (pcl_point_cloud->points.at(i).z > 1.0) continue; //ver tera
       // if (10.0 <= sqrt(x*x + y*y + z*z)) continue; //ver tera
-      // map_updata_cell(map_, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
-      map_updata_cell(obs_map, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
+      map_updata_cell(map_, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
+      // map_updata_cell(obs_map, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
   }
 
-  map_updata_map(map_, obs_map);
+  // map_updata_map(map_, obs_map);
 
   map_free(obs_map);
   obs_map = NULL;
@@ -140,27 +140,27 @@ bool DiffElevationMappingNode::savemapCallback(std_srvs::Empty::Request &request
   for(int i=0;i<map_->size_x;i++) {
     for(int j=0;j<map_->size_y;j++) {
       if (!(MAP_VALID(map_, i, j))) continue;
-      if (!(map_->cells[MAP_INDEX(map_, i, j)].flag)) continue;
+      // if (!(map_->cells[MAP_INDEX(map_, i, j)].flag)) continue;
       // if (map_->cells[MAP_INDEX(map_, i, j)].diff < 0.05) continue;
         pcl::PointXYZI p_msg;
         p_msg.x = MAP_WXGX(map_, i);
         p_msg.y = MAP_WXGX(map_, j);
-        // p_msg.z = map_->cells[MAP_INDEX(map_, i, j)].diff; // p_msg.intensity  = p_msg.z;
-        // p_msg.intensity  = p_msg.z;
-        if (map_->cells[MAP_INDEX(map_, i, j)].visit==0) {
-          p_msg.z = 0.0;
-        } else {
-          p_msg.z = map_->cells[MAP_INDEX(map_, i, j)].diff / map_->cells[MAP_INDEX(map_, i, j)].visit;
-        }
-        for (int k = 0; k < map_->cells[MAP_INDEX(map_, i, j)].diffs.size(); k++) {
-          double d = map_->cells[MAP_INDEX(map_, i, j)].diffs.at(k) - p_msg.z;
-          p_msg.intensity += d * d;
-        }
-        if (!(map_->cells[MAP_INDEX(map_, i, j)].diffs.size()==0)) {
-          p_msg.intensity = 0.0;
-        } else {
-          p_msg.intensity = p_msg.intensity / map_->cells[MAP_INDEX(map_, i, j)].diffs.size();
-        }
+        p_msg.z = map_->cells[MAP_INDEX(map_, i, j)].diff; // p_msg.intensity  = p_msg.z;
+        p_msg.intensity  = p_msg.z;
+        // if (map_->cells[MAP_INDEX(map_, i, j)].visit==0) {
+        //   p_msg.z = 0.0;
+        // } else {
+        //   p_msg.z = map_->cells[MAP_INDEX(map_, i, j)].diff / map_->cells[MAP_INDEX(map_, i, j)].visit;
+        // }
+        // for (int k = 0; k < map_->cells[MAP_INDEX(map_, i, j)].diffs.size(); k++) {
+        //   double d = map_->cells[MAP_INDEX(map_, i, j)].diffs.at(k) - p_msg.z;
+        //   p_msg.intensity += d * d;
+        // }
+        // if (!(map_->cells[MAP_INDEX(map_, i, j)].diffs.size()==0)) {
+        //   p_msg.intensity = 0.0;
+        // } else {
+        //   p_msg.intensity = p_msg.intensity / map_->cells[MAP_INDEX(map_, i, j)].diffs.size();
+        // }
         pc_msg.push_back(p_msg);
     } 
   }
