@@ -129,8 +129,8 @@ void DiffElevationMappingNode::processMapping(const sensor_msgs::PointCloud2Cons
 
   // map_updata_map(map_, obs_map);
 
-  map_free(obs_map);
-  obs_map = NULL;
+  // map_free(obs_map);
+  // obs_map = NULL;
 }
 
 bool DiffElevationMappingNode::savemapCallback(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
