@@ -65,7 +65,7 @@ DiffElevationMappingNode::DiffElevationMappingNode()
 {
   ros::NodeHandle private_nh;
   // private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/hokuyo3d/hokuyo_cloud2"));
-  private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/disting_cloud2"));
+  private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/elevation_difference_cloud"));
   private_nh.param("global_frame_id", global_frame_id_, std::string("map"));
   private_nh.param("pcd_file", pcd_file_, std::string("elevation_difference_grid_map.pcd"));
 
@@ -87,50 +87,34 @@ void DiffElevationMappingNode::processMapping(const sensor_msgs::PointCloud2Cons
   pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromROSMsg(transformed_point_cloud, *pcl_point_cloud);
 
-  map_t *obs_map = map_alloc();
-  obs_map->size_x = map_->size_x;
-  obs_map->size_y = map_->size_y;
-  obs_map->scale = map_->scale;
-  obs_map->origin_x = map_->origin_x;
-  obs_map->origin_y = map_->origin_y;
-  obs_map->cells = (map_cell_t*)malloc(sizeof(map_cell_t)*obs_map->size_x*obs_map->size_y);
+  // map_t *obs_map = map_alloc();
+  // obs_map->size_x = map_->size_x;
+  // obs_map->size_y = map_->size_y;
+  // obs_map->scale = map_->scale;
+  // obs_map->origin_x = map_->origin_x;
+  // obs_map->origin_y = map_->origin_y;
+  // obs_map->cells = (map_cell_t*)malloc(sizeof(map_cell_t)*obs_map->size_x*obs_map->size_y);
 
-  for(int i=0; i<obs_map->size_x*obs_map->size_y; i++){
-    obs_map->cells[i].flag = false;
-    obs_map->cells[i].min = 0.0;
-    obs_map->cells[i].max = 0.0;
-    obs_map->cells[i].diff = 0.0;
-  }
-
-  // ver tera start
-  // tf::Stamped<tf::Pose> pose;
-  // tf::Stamped<tf::Pose> ident (tf::Transform(tf::createIdentityQuaternion(),tf::Vector3(0,0,0)), point_cloud->header.stamp, point_cloud->header.frame_id);
-  // try
-  // {
-  //   this->tf_.transformPose(global_frame_id_, ident, pose);
+  // for(int i=0; i<obs_map->size_x*obs_map->size_y; i++){
+  //   obs_map->cells[i].flag = false;
+  //   obs_map->cells[i].min = 0.0;
+  //   obs_map->cells[i].max = 0.0;
+  //   obs_map->cells[i].diff = 0.0;
   // }
-  // catch(tf::TransformException e)
-  // {
-  //   ROS_WARN("Failed to compute odom pose, skipping scan (%s)", e.what());
-  //   return;
-  // }
-  // ver tera end
 
   for(int i=0; i<pcl_point_cloud->points.size(); i++){
-      // double x =  pcl_point_cloud->points.at(i).x - pose.getOrigin().x(); //ver tera
-      // double y =  pcl_point_cloud->points.at(i).y - pose.getOrigin().y(); //ver tera
-      // double z =  pcl_point_cloud->points.at(i).z - pose.getOrigin().z(); //ver tera
-      // if (pcl_point_cloud->points.at(i).z >1.5) pcl_point_cloud->points.at(i).z = 1.5;
-      // if (pcl_point_cloud->points.at(i).z > 1.0) continue; //ver tera
-      // if (10.0 <= sqrt(x*x + y*y + z*z)) continue; //ver tera
-      // map_updata_cell(map_, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
-      map_updata_cell(obs_map, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
+    // int mi = MAP_GXWX(obs_map, pcl_point_cloud->points.at(i).x), mj = MAP_GYWY(obs_map, pcl_point_cloud->points.at(i).y);
+    // obs_map->cells[MAP_INDEX(obs_map,mi,mj)].diff = pcl_point_cloud->points.at(i).z;
+    // if (pcl_point_cloud->points.at(i).z >1.5) pcl_point_cloud->points.at(i).z = 1.5;
+    ROS_INFO("%f", pcl_point_cloud->points.at(i).z);
+    map_updata_cell(map_, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
+    // map_updata_cell(obs_map, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
   }
 
-  map_updata_map(map_, obs_map);
+  // map_updata_map(map_, obs_map);
 
-  map_free(obs_map);
-  obs_map = NULL;
+  // map_free(obs_map);
+  // obs_map = NULL;
 }
 
 bool DiffElevationMappingNode::savemapCallback(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response)
