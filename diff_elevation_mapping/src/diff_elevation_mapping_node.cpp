@@ -106,7 +106,7 @@ void DiffElevationMappingNode::processMapping(const sensor_msgs::PointCloud2Cons
     // int mi = MAP_GXWX(obs_map, pcl_point_cloud->points.at(i).x), mj = MAP_GYWY(obs_map, pcl_point_cloud->points.at(i).y);
     // obs_map->cells[MAP_INDEX(obs_map,mi,mj)].diff = pcl_point_cloud->points.at(i).z;
     // if (pcl_point_cloud->points.at(i).z >1.5) pcl_point_cloud->points.at(i).z = 1.5;
-    ROS_INFO("%f", pcl_point_cloud->points.at(i).z);
+    // ROS_INFO("%f", pcl_point_cloud->points.at(i).z);
     map_updata_cell(map_, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
     // map_updata_cell(obs_map, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
   }
