@@ -71,7 +71,8 @@ void map_updata_cell(map_t *map, double gx, double gy, double data)
   if (!MAP_VALID(map, mi, mj)) return;
 
   map->cells[MAP_INDEX(map, mi, mj)].flag = true;
-  map->cells[MAP_INDEX(map, mi, mj)].diff = map->cells[MAP_INDEX(map, mi, mj)].diff + data;
+  map->cells[MAP_INDEX(map, mi, mj)].intensity += data; //map->cells[MAP_INDEX(map, mi, mj)].intensity + data;
+  map->cells[MAP_INDEX(map, mi, mj)].intensities += data*data;
   map->cells[MAP_INDEX(map, mi, mj)].visit++;
-  map->cells[MAP_INDEX(map, mi, mj)].diffs.push_back(data);
+  //map->cells[MAP_INDEX(map, mi, mj)].intensities.push_back(data);
 }

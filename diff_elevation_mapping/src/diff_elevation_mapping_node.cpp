@@ -1,5 +1,4 @@
-#include <ros/ros.h>
-
+#include <ros/ros.h> 
 #include <tf/transform_listener.h>
 
 #include "sensor_msgs/PointCloud.h"
@@ -65,7 +64,7 @@ DiffElevationMappingNode::DiffElevationMappingNode()
 {
   ros::NodeHandle private_nh;
   // private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/hokuyo3d/hokuyo_cloud2"));
-  private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/elevation_difference_cloud"));
+  private_nh.param("point_cloud_topic_name", point_cloud_topic_name_, std::string("/accumulate_scan_cloud"));
   private_nh.param("global_frame_id", global_frame_id_, std::string("map"));
   private_nh.param("pcd_file", pcd_file_, std::string("elevation_difference_grid_map.pcd"));
 
@@ -84,7 +83,7 @@ void DiffElevationMappingNode::processMapping(const sensor_msgs::PointCloud2Cons
 {
   sensor_msgs::PointCloud2 transformed_point_cloud;
   if(!(pcl_ros::transformPointCloud(global_frame_id_, *point_cloud, transformed_point_cloud, tf_))) return;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_point_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_point_cloud(new pcl::PointCloud<pcl::PointXYZI>);
   pcl::fromROSMsg(transformed_point_cloud, *pcl_point_cloud);
 
   // map_t *obs_map = map_alloc();
@@ -107,8 +106,24 @@ void DiffElevationMappingNode::processMapping(const sensor_msgs::PointCloud2Cons
     // obs_map->cells[MAP_INDEX(obs_map,mi,mj)].diff = pcl_point_cloud->points.at(i).z;
     // if (pcl_point_cloud->points.at(i).z >1.5) pcl_point_cloud->points.at(i).z = 1.5;
     // ROS_INFO("%f", pcl_point_cloud->points.at(i).z);
-    map_updata_cell(map_, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
-    // map_updata_cell(obs_map, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).z);
+    if(pcl_point_cloud->points.at(i).z>0.05)continue;
+    //for(int i = 0; i < pcl_point_cloud->points.size(); i++){
+        //double normaliz = scan_in->intensities[i] / (48.2143 * scan_in->ranges[i] * scan_in->ranges[i] - 840.393 * scan_in->ranges[i] + 4251.14+300);
+
+        //double normaliz = pcl_point_cloud->points.at(i).intensity / (-430 * sqrt(pow(pcl_point_cloud->points.at(i).x,2) + pow(pcl_point_cloud->points.at(i).y,2) + pow(pcl_point_cloud->points.at(i).z,2))+ 3900);
+
+        //if(filtered_cloud->points[i].z >= a * filtered_cloud->points[i].y + b + 0.038){
+        //    filtered_cloud->points[i].intensity = 100.0;
+        //}else{
+        //  if(normaliz >= 1)
+        //      pcl_point_cloud->points.at(i).intensity = 100.0;
+        //  else
+        //      pcl_point_cloud->points.at(i).intensity = 0.1;
+        //}
+    //}
+	//double d = sqrt(pow(pcl_point_cloud->points.at(i).x,2) + pow(pcl_point_cloud->points.at(i).y,2) + pow(pcl_point_cloud->points.at(i).z,2));
+	//pcl_point_cloud->points.at(i).intensity += 125*d;
+    map_updata_cell(map_, pcl_point_cloud->points.at(i).x, pcl_point_cloud->points.at(i).y, pcl_point_cloud->points.at(i).intensity);
   }
 
   // map_updata_map(map_, obs_map);
@@ -121,33 +136,81 @@ bool DiffElevationMappingNode::savemapCallback(std_srvs::Empty::Request &request
 {
   pcl::PointCloud<pcl::PointXYZI> pc_msg;
   pc_msg.clear();
+  pcl::PointCloud<pcl::PointXYZI> pc_msg_dist;
+  pc_msg_dist.clear();
   for(int i=0;i<map_->size_x;i++) {
     for(int j=0;j<map_->size_y;j++) {
       if (!(MAP_VALID(map_, i, j))) continue;
       if (!(map_->cells[MAP_INDEX(map_, i, j)].flag)) continue;
       // if (map_->cells[MAP_INDEX(map_, i, j)].diff < 0.05) continue;
-        pcl::PointXYZI p_msg;
-        p_msg.x = MAP_WXGX(map_, i);
-        p_msg.y = MAP_WXGX(map_, j);
-        // p_msg.z = map_->cells[MAP_INDEX(map_, i, j)].diff; // p_msg.intensity  = p_msg.z;
-        // p_msg.intensity  = p_msg.z;
+        pcl::PointXYZI p_msg;//(x,y,z,intensity)
+        pcl::PointXYZI p_msg_dist;
+        p_msg.x = p_msg_dist.x = MAP_WXGX(map_, i);
+        p_msg.y = p_msg_dist.y = MAP_WYGY(map_, j);
+        p_msg.z = p_msg_dist.z = 0;//map_->cells[MAP_INDEX(map_, i, j)].diff; // p_msg.intensity  = p_msg.z;
+        // p_msg.intensity  = map ->cells[MAP_INDEX(map_, i, j)];
         if (map_->cells[MAP_INDEX(map_, i, j)].visit==0) {
-          p_msg.z = 0.0;
-        } else {
-          p_msg.z = map_->cells[MAP_INDEX(map_, i, j)].diff / map_->cells[MAP_INDEX(map_, i, j)].visit;
-        }
-        for (int k = 0; k < map_->cells[MAP_INDEX(map_, i, j)].diffs.size(); k++) {
-          double d = map_->cells[MAP_INDEX(map_, i, j)].diffs.at(k) - p_msg.z;
-          p_msg.intensity += d * d;
-        }
-        if (!(map_->cells[MAP_INDEX(map_, i, j)].diffs.size()==0)) {
           p_msg.intensity = 0.0;
+          p_msg_dist.intensity = 0.0;
         } else {
-          p_msg.intensity = p_msg.intensity / map_->cells[MAP_INDEX(map_, i, j)].diffs.size();
+          p_msg.intensity = map_->cells[MAP_INDEX(map_, i, j)].intensity / map_->cells[MAP_INDEX(map_, i, j)].visit;
+          p_msg_dist.intensity = map_->cells[MAP_INDEX(map_, i, j)].intensities / p_msg.intensity;
+          //float dist = 0.0;
+          //for(int mi = 0; mi <= map_->cells[MAP_INDEX(map_,i,j)].visit; mi++){
+          //  for(int mj=0; mj <= map_->cells[MAP_INDEX(map_,i,j)].intensities.size(); mj++){
+          //    dist += pow(map_->cells[MAP_INDEX(map_,i,j)].intensities.at(j),2) - pow(p_msg.intensity,2); 
+          //  }
+          //}
+          //p_msg.intensity_cov = cov_ / map_->cells[MAP_INDEX(map_,i,j)].visit;
         }
+	
+        // for (int k = 0; k < map_->cells[MAP_INDEX(map_, i, j)].intensities.size(); k++) {
+        //   double d = map_->cells[MAP_INDEX(map_, i, j)].intensities.at(k) - p_msg.z;
+        //   p_msg.intensity += d * d;
+        // }
+        // if (!(map_->cells[MAP_INDEX(map_, i, j)].intensities.size()==0)) {
+        //   p_msg.intensity = 0.0;
+        // } else {
+        //   p_msg.intensity = p_msg.intensity / map_->cells[MAP_INDEX(map_, i, j)].intensities.size();
+        // }
         pc_msg.push_back(p_msg);
+        pc_msg_dist.push_back(p_msg_dist);  
     } 
   }
+  
+  //pcl::PointCloud<pcl::PointXYZI> pc_msg_dist;
+  //pc_msg_dist.clear();
+  //for(int i=0;i<map_->size_x;i++) {
+  //  for(int j=0;j<map_->size_y;j++) {
+  //    if (!(MAP_VALID(map_, i, j))) continue;
+  //    if (!(map_->cells[MAP_INDEX(map_, i, j)].flag)) continue;
+  //      pcl::PointXYZI p_msg_dist;//(x,y,z,intensity_dist)
+  //      p_msg_dist.x = MAP_WXGX(map_, i);
+  //      p_msg_dist.y = MAP_WYGY(map_, j);
+  //      p_msg_dist.z = 0;
+  //      if (map_->cells[MAP_INDEX(map_, i, j)].visit==0) {
+  //        p_msg_dist.z = 0.0;
+  //      } else {
+  //        double intensity_ave = 0.0;
+  //        double dist = 0.0;
+  //        intensity_ave = map_->cells[MAP_INDEX(map_, i, j)].intensity / map_->cells[MAP_INDEX(map_, i, j)].visit;
+  //        for(int mj=0; mj < map_->cells[MAP_INDEX(map_,i,j)].visit; mj++){
+  //          dist = map_->cells[MAP_INDEX(map_,i,j)].intensities.at(mj) - intensity_ave;
+  //          p_msg_dist.intensity += dist * dist;
+  //        }
+  //        if(!(map_->cells[MAP_INDEX(map_,i,j)].visit==0))
+  //        {
+  //          p_msg_dist.intensity = p_msg_dist.intensity / map_->cells[MAP_INDEX(map_,i,j)].visit;
+  //        }else{
+  //          p_msg_dist.intensity = 0.0;
+  //        }
+  //        //std::cout << "intensites.size:" << map_->cells[MAP_INDEX(map_,i,j)].intensities.size() << std::endl;
+  //        //std::cout << "visit:" << map_->cells[MAP_INDEX(map_,i,j)].visit << std::endl;
+  //      }
+  //     pc_msg_dist.push_back(p_msg_dist);  
+  //  }
+  //}
+  
   // pcl::io::savePCDFile("3f.pcd", pc_msg);
   // pcl::io::savePCDFile("gaisyuu_0901_1.pcd", pc_msg);
   // pcl::io::savePCDFile("3f_0901.pcd", pc_msg);
@@ -158,6 +221,7 @@ bool DiffElevationMappingNode::savemapCallback(std_srvs::Empty::Request &request
   // pcl::io::savePCDFile("delta_oshimizu_1013_01.pcd", pc_msg);
   // pcl::io::savePCDFile("/home/humio/delta_oshimizu_1026_02.pcd", pc_msg);
   pcl::io::savePCDFile(pcd_file_, pc_msg);
+  pcl::io::savePCDFile("2goukann_dist.pcd", pc_msg_dist);
   ROS_INFO("save success");
 
   return true;
@@ -184,19 +248,19 @@ bool DiffElevationMappingNode::pubmapCallback(std_srvs::Empty::Request &request,
       for (int x=-1; x<=1; x++){
         for(int y=-1; y<=1; y++){
           if (!(MAP_VALID(map_, x+center_x, y+center_y))) continue;
-          box.push_back(map_->cells[MAP_INDEX(map_, x+center_x, y+center_y)].diff);
+          box.push_back(map_->cells[MAP_INDEX(map_, x+center_x, y+center_y)].intensity);
         }
       }
       if (box.size() != 9) continue;
       std::sort(box.begin(), box.end());
-      fmap->cells[MAP_INDEX(fmap, center_x, center_y)].diff=box.at(4);
+      fmap->cells[MAP_INDEX(fmap, center_x, center_y)].intensity=box.at(4);
     }
   }
 
   for(int i=0;i<map_->size_x;i++) {
       for(int j=0;j<map_->size_y;j++) {
         if (!(MAP_VALID(map_, i, j))) continue;
-        map_->cells[MAP_INDEX(map_, i, j)].diff=fmap->cells[MAP_INDEX(fmap, i, j)].diff;
+        map_->cells[MAP_INDEX(map_, i, j)].intensity=fmap->cells[MAP_INDEX(fmap, i, j)].intensity;
       } 
   }
 
@@ -208,13 +272,13 @@ bool DiffElevationMappingNode::pubmapCallback(std_srvs::Empty::Request &request,
   for(int i=0;i<map_->size_x;i++) {
       for(int j=0;j<map_->size_y;j++) {
           if (!(MAP_VALID(map_, i, j))) continue;
-          if (fabs(map_->cells[MAP_INDEX(map_, i, j)].diff) < 0.1) continue;
+          if (fabs(map_->cells[MAP_INDEX(map_, i, j)].intensity) < 0.1) continue;
           // ROS_INFO("test6");
           geometry_msgs::Point32 point;
           point.x = MAP_WXGX(map_, i);
-          point.y = MAP_WXGX(map_, j);
+          point.y = MAP_WYGY(map_, j);
           map_cloud.points.push_back(point);
-          map_cloud.channels.at(map_cloud.channels.size()-1).values.push_back(map_->cells[MAP_INDEX(map_, i, j)].diff);
+          map_cloud.channels.at(map_cloud.channels.size()-1).values.push_back(map_->cells[MAP_INDEX(map_, i, j)].intensity);
       }
   }
 
@@ -241,12 +305,12 @@ bool DiffElevationMappingNode::pubmapCallback(std_srvs::Empty::Request &request,
 
   // for(int i=0;i<map_->size_x * map_->size_y;i++)
   // {
-  //   map_->cells[i].diff = 0;
+  //   map_->cells[i].intensity = 0;
   // }
 
   // for (size_t k=0; k<map_cloud_filtered->points.size(); k++) {
   //   int i = MAP_GXWX(map_, map_cloud_filtered->points.at(k).x), j = MAP_GYWY(map_, map_cloud_filtered->points.at(k).y);
-  //   map_->cells[MAP_INDEX(map_, i, j)].diff = 1.0;
+  //   map_->cells[MAP_INDEX(map_, i, j)].intensity = 1.0;
   // }
 
   for(int i=0;i<map_->size_x * map_->size_y;i++)
@@ -254,7 +318,7 @@ bool DiffElevationMappingNode::pubmapCallback(std_srvs::Empty::Request &request,
     // ROS_INFO_STREAM("test7: " << ((map_->size_x * map_->size_y) -i));
     if(!(map_->cells[i].flag))
       map_msg.data[i] = -1;
-    else if(fabs(map_->cells[i].diff < 0.15))
+    else if(fabs(map_->cells[i].intensity < 0.15))
       map_msg.data[i] = 0;
     else
       map_msg.data[i] = 100;
@@ -300,9 +364,9 @@ map_t* DiffElevationMappingNode::convertMap( const nav_msgs::OccupancyGrid& map_
     map->cells[i].flag = false;
     map->cells[i].min = 0.0;
     map->cells[i].max = 0.0;
-    map->cells[i].diff = 0.0;
+    map->cells[i].intensity = 0.0;
     map->cells[i].visit = 0;
-    map->cells[i].diffs.clear();
+    map->cells[i].intensities.clear();
   }
 
   return map;

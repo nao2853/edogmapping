@@ -12,10 +12,11 @@ extern "C" {
   
 typedef struct
 {
-  double min = 0.0, max = 0.0, diff = 0.0;
+  double min = 0.0, max = 0.0, intensity = 0.0;
+  double dist = 0.0;
   bool flag = false;
   int visit = 0;
-  std::vector<double> diffs;
+  double intensities;
 } map_cell_t;
 
 
